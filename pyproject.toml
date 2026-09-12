@@ -10,3 +10,9 @@ dependencies = [
     "music21>=8.3.0",
     "flask>=2.3",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+scordatura = ["templates/*.html"]
