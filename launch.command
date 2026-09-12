@@ -6,8 +6,12 @@ if [ ! -d ".venv" ]; then
     if ! python3 -m venv .venv; then
         echo ""
         echo "ERROR: Could not create virtual environment."
-        echo "If this folder is in Downloads, move it to Applications or Documents and try again."
-        echo "macOS restricts certain operations in the Downloads folder."
+        echo "macOS is blocking Terminal from writing to this folder."
+        echo ""
+        echo "To fix: open System Settings → Privacy & Security → Files and Folders"
+        echo "and make sure Terminal has access to the folder where this app is stored."
+        echo ""
+        echo "Alternatively, try granting Terminal Full Disk Access under Privacy & Security."
         echo ""
         read -rp "Press Enter to close..."
         exit 1
