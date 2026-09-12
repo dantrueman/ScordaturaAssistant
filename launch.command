@@ -1,5 +1,6 @@
 #!/bin/bash
-cd "$(dirname "$0")"
+APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$APP_DIR"
 
 VENV="$HOME/.scordatura/venv"
 
@@ -26,4 +27,4 @@ if [ ! -d "$VENV" ]; then
     fi
 fi
 
-"$VENV/bin/python" -m scordatura.web
+PYTHONPATH="$APP_DIR" "$VENV/bin/python" -m scordatura.web
