@@ -25,6 +25,11 @@ Requires Python 3.9+. If Python is not already on your machine:
 
 A browser tab opens at `http://127.0.0.1:5005`. Drag-drop a MusicXML file, pick an instrument preset, edit base pitches / offsets / max-fret if needed, hit Translate, and the 6-staff output downloads. Close the Terminal window to stop the server.
 
+**To update to a newer version**, delete `~/.scordatura` in Terminal and relaunch:
+```bash
+rm -rf ~/.scordatura
+```
+
 ## Run (local web app — Windows)
 
 1. Place the `ScordaturaAssistant` folder anywhere (e.g. `Documents`).
