@@ -22,6 +22,7 @@ fi
 if ! "$VENV/bin/python3" -c "import scordatura" 2>/dev/null; then
     echo "Installing dependencies (this may take a minute)..."
     cd "$HOME"
+    "$VENV/bin/python3" -m pip install --upgrade pip --quiet
     if ! "$VENV/bin/python3" -m pip install "$APP_DIR"; then
         echo ""
         echo "ERROR: Could not install dependencies."
