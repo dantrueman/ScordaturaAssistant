@@ -1,5 +1,7 @@
 # Scordatura Assistant
 
+**[Download latest release](https://github.com/dantrueman/ScordaturaAssistant/releases/latest)** — grab `ScordaturaAssistant.zip` from the Assets section.
+
 Takes a MusicXML part written in **sounding pitches** and produces a 6-staff comparison score:
 
 1. **Sounding (source)** — the original, untouched.
