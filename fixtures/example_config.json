@@ -1,0 +1,14 @@
+{
+  "instrument": "violoncello",
+  "fingerboard": {
+    "n_strings": 5,
+    "base_pitches": [36, 43, 50, 57, 64],
+    "offsets": [0, 0, -2, 0, 0],
+    "max_fret": [24, 24, 24, 24, 19]
+  },
+  "solver": {
+    "alpha": 0.05,
+    "beta": 0.05,
+    "beam": null
+  }
+}

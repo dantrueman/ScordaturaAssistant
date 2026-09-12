@@ -1,0 +1,14 @@
+{
+  "instrument": "Hardanger",
+  "fingerboard": {
+    "n_strings": 4,
+    "base_pitches": [55, 62, 69, 76],
+    "offsets": [2, 2, 0, -4],
+    "max_fret": [19, 19, 19, 24]
+  },
+  "solver": {
+    "alpha": 0.05,
+    "beta": 0.05,
+    "beam": null
+  }
+}

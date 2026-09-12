@@ -1,0 +1,14 @@
+{
+  "instrument": "violin",
+  "fingerboard": {
+    "n_strings": 5,
+    "base_pitches": [48, 55, 62, 69, 76],
+    "offsets": [0, 1, -2, -2, -4],
+    "max_fret": [24, 24, 24, 24, 24]
+  },
+  "solver": {
+    "alpha": 0.05,
+    "beta": 0.05,
+    "beam": null
+  }
+}

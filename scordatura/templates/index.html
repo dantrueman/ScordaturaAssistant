@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scordatura Assistant</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    max-width: 680px;
+    margin: 2rem auto;
+    padding: 0 1.2rem;
+    color: #222;
+    line-height: 1.45;
+  }
+  h1 { font-size: 1.5rem; margin-bottom: 0.2rem; }
+  p.tagline { color: #555; margin-top: 0.2rem; }
+  label { display: block; margin: 0.9rem 0 0.25rem; font-weight: 600; font-size: 0.95rem; }
+  input[type=text], select {
+    width: 100%; padding: 0.45rem 0.55rem; box-sizing: border-box;
+    font-size: 0.95rem; border: 1px solid #bbb; border-radius: 4px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  small { color: #666; font-size: 0.82rem; display: block; margin-top: 0.2rem; }
+  .drop {
+    border: 2px dashed #bbb; padding: 1.6rem; text-align: center;
+    border-radius: 8px; margin: 0.5rem 0 0.2rem; cursor: pointer;
+    background: #fafafa; transition: border-color 0.15s, background 0.15s;
+  }
+  .drop.over { border-color: #2a7; background: #f0fff5; }
+  .drop .label { color: #555; }
+  .drop .picked { margin-top: 0.4rem; font-family: ui-monospace, Menlo, monospace; color: #2a7; }
+  button {
+    background: #2a7; color: white; border: 0;
+    padding: 0.65rem 1.4rem; font-size: 1rem; border-radius: 4px;
+    cursor: pointer; margin-top: 1.5rem;
+  }
+  button:hover { background: #248a5e; }
+  .row { display: flex; gap: 0.6rem; }
+  .row > div { flex: 1; }
+</style>
+</head>
+<body>
+
+<h1>Scordatura Assistant</h1>
+<p class="tagline">Upload a MusicXML score in <em>sounding</em> pitches. You'll get a 6-staff comparison: the source, plus five string-assignment strategies under your scordatura.</p>
+
+<form id="form" method="post" action="/process" enctype="multipart/form-data">
+
+  <label>MusicXML file</label>
+  <div id="drop" class="drop">
+    <div class="label">drop a .musicxml file here, or click to choose</div>
+    <div id="picked" class="picked"></div>
+    <input id="file" type="file" name="score" accept=".musicxml,.xml" required style="display:none">
+  </div>
+
+  <div class="row">
+    <div>
+      <label>Instrument</label>
+      <select id="instrument" name="instrument">
+        <option value="violin">Violin</option>
+        <option value="viola">Viola</option>
+        <option value="cello">Cello</option>
+        <option value="contrabass">Contrabass</option>
+      </select>
+    </div>
+    <div>
+      <label>Strings</label>
+      <select id="n_strings" name="n_strings">
+        <option value="4">4</option>
+        <option value="5">5</option>
+      </select>
+    </div>
+  </div>
+
+  <label>Open-string MIDI, low → high (normal tuning)</label>
+  <input type="text" name="base_pitches" id="base_pitches" value="55, 62, 69, 76">
+  <small>Violin: 55, 62, 69, 76 · Viola: 48, 55, 62, 69 · Cello: 36, 43, 50, 57 · Contrabass: 28, 33, 38, 43</small>
+
+  <label>Scordatura offsets, semitones (low → high) — one per string</label>
+  <input type="text" name="offsets" id="offsets" value="0, 0, 0, 0">
+  <small>Negative = tuned down. Must match the number of open strings above.</small>
+
+  <label>Max fret per string (optional)</label>
+  <input type="text" name="max_fret" id="max_fret" placeholder="24, 24, 24, 24">
+  <small>Semitones above the open string; defaults to 24 (two octaves) all around.</small>
+
+  <button type="submit">Translate</button>
+</form>
+
+<script>
+// Per-instrument open-string MIDI presets keyed by string count.
+const PRESETS = {
+  violin:     { 4: "55, 62, 69, 76", 5: "48, 55, 62, 69, 76" },
+  viola:      { 4: "48, 55, 62, 69", 5: "48, 55, 62, 69, 76" },
+  cello:      { 4: "36, 43, 50, 57", 5: "36, 43, 50, 57, 64" },
+  contrabass: { 4: "28, 33, 38, 43" },
+};
+
+const instrSel = document.getElementById("instrument");
+const nSel = document.getElementById("n_strings");
+const baseInp = document.getElementById("base_pitches");
+const offsetInp = document.getElementById("offsets");
+
+function resizeList(value, n, fillLast) {
+  const list = value.split(",").map(s => s.trim()).filter(Boolean);
+  while (list.length < n) list.push(fillLast ? (list[list.length - 1] || "0") : "0");
+  return list.slice(0, n).join(", ");
+}
+
+function countValues(str) {
+  return str.split(",").map(s => s.trim()).filter(Boolean).length;
+}
+
+function applyPreset(instr, n) {
+  const preset = PRESETS[instr] && PRESETS[instr][n];
+  baseInp.value = preset || resizeList(baseInp.value, n, true);
+  // Resize offsets to match the new string count, padding with 0 or trimming.
+  offsetInp.value = resizeList(offsetInp.value, n, false);
+  nSel.value = String(n);
+}
+
+instrSel.addEventListener("change", () => {
+  applyPreset(instrSel.value, parseInt(nSel.value, 10));
+});
+
+nSel.addEventListener("change", () => {
+  applyPreset(instrSel.value, parseInt(nSel.value, 10));
+});
+
+// Keep n_strings selector in sync when the user manually edits base_pitches.
+baseInp.addEventListener("change", () => {
+  const n = countValues(baseInp.value);
+  if (n > 0 && nSel.querySelector(`option[value="${n}"]`)) {
+    nSel.value = String(n);
+  }
+});
+
+const drop = document.getElementById("drop");
+const fileInp = document.getElementById("file");
+const picked = document.getElementById("picked");
+drop.addEventListener("click", () => fileInp.click());
+fileInp.addEventListener("change", () => { if (fileInp.files[0]) picked.textContent = fileInp.files[0].name; });
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", e => {
+  e.preventDefault();
+  drop.classList.remove("over");
+  if (e.dataTransfer.files.length) {
+    fileInp.files = e.dataTransfer.files;
+    picked.textContent = fileInp.files[0].name;
+  }
+});
+</script>
+
+</body>
+</html>
