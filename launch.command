@@ -1,6 +1,5 @@
 #!/bin/bash
-APP_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$APP_DIR"
+APP_DIR="$(dirname "$0")"
 
 VENV="$HOME/.scordatura/venv"
 
@@ -22,6 +21,7 @@ fi
 # Install/update packages if scordatura is not installed in the venv
 if ! "$VENV/bin/python3" -c "import scordatura" 2>/dev/null; then
     echo "Installing dependencies (this may take a minute)..."
+    cd "$HOME"
     if ! "$VENV/bin/python3" -m pip install "$APP_DIR"; then
         echo ""
         echo "ERROR: Could not install dependencies."
@@ -32,4 +32,5 @@ if ! "$VENV/bin/python3" -c "import scordatura" 2>/dev/null; then
     fi
 fi
 
+cd "$HOME"
 "$VENV/bin/python3" -m scordatura.web
