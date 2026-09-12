@@ -19,7 +19,7 @@ Requires Python 3.9+. If Python is not already on your machine:
 
 ## Run (local web app — macOS)
 
-1. Place the `ScordaturaAssistant` folder anywhere (e.g. `/Applications` or `Documents`).
+1. Place the `ScordaturaAssistant` folder in `/Applications` or `Documents` — do not run it directly from `Downloads`, as macOS restricts file creation there.
 2. Double-click `launch.command`. The first time macOS may warn you it's from an unidentified developer — right-click it and choose **Open**, then confirm. On first launch it will create a virtual environment and install dependencies automatically (requires an internet connection); subsequent launches start immediately.
 
 A browser tab opens at `http://127.0.0.1:5005`. Drag-drop a MusicXML file, pick an instrument preset, edit base pitches / offsets / max-fret if needed, hit Translate, and the 6-staff output downloads. Close the Terminal window to stop the server.
