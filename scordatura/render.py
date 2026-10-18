@@ -1,7 +1,9 @@
 import copy
+from contextlib import contextmanager
 from typing import List, Optional, Tuple
 
 from music21 import articulations, chord, instrument, key, note, pitch, spanner, stream
+from music21.stream import makeNotation as _m21_make_notation
 
 from .events import Event, parse_events
 from .fingerboard import Fingerboard, OCTAVE_HARMONIC_NODE
@@ -16,6 +18,30 @@ from .solver import (
     solve,
 )
 from .spelling import respell
+
+
+@contextmanager
+def _no_tuplet_consolidation():
+    """music21's MusicXML export runs makeNotation(), which calls
+    consolidateCompletedTuplets(onlyIfTied=True): tied tuplet notes inside a
+    bar whose lengths add up to a plain duration are merged into ONE note
+    (e.g. a tied sextuplet sixteenth + triplet eighth becomes a plain eighth
+    starting on a triplet position). That is valid MusicXML but carries no
+    <time-modification>, and Dorico's importer chokes on it, dropping the rest
+    of the part. We only ever change pitches, so the source's tied-tuplet
+    notation is already right: suppress the merge while writing."""
+    original = _m21_make_notation.consolidateCompletedTuplets
+    _m21_make_notation.consolidateCompletedTuplets = lambda *a, **k: None
+    try:
+        yield
+    finally:
+        _m21_make_notation.consolidateCompletedTuplets = original
+
+
+def write_musicxml(score: stream.Score, fp: str) -> None:
+    """Write `score` to `fp` as MusicXML, preserving tied-tuplet notation."""
+    with _no_tuplet_consolidation():
+        score.write("musicxml", fp=fp)
 
 
 def _active_key_signature(part: stream.Part) -> Optional[key.KeySignature]:
@@ -44,15 +70,22 @@ def _sanitize_part_for_export(part: stream.Part) -> None:
         if m.voices:
             continue  # genuine multi-voice measure: overlaps are legitimate
         notes = list(m.notes)
+        kept_rests: List[note.Rest] = []
         for r in list(m.getElementsByClass(note.Rest)):
             r_start = r.offset
             r_end = r_start + r.duration.quarterLength
-            for n in notes:
+            # A rest also counts as redundant when it overlaps a rest we've
+            # already kept (e.g. a real rest plus the rest music21 synthesizes
+            # for a <forward> over the same span): written back to back they
+            # would lengthen the bar.
+            for n in notes + kept_rests:
                 n_start = n.offset
                 n_end = n_start + n.duration.quarterLength
                 if r_start < n_end and n_start < r_end:
                     m.remove(r)
                     break
+            else:
+                kept_rests.append(r)
 
 
 def _set_pitch_on_note(n: "note.Note", new_pitch: pitch.Pitch) -> None:

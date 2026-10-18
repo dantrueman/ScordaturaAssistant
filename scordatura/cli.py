@@ -6,7 +6,7 @@ from typing import Tuple
 from music21 import converter, stream
 
 from .config import load_config
-from .render import build_score
+from .render import build_score, write_musicxml
 
 
 _ALTER_RE = re.compile(r"<alter>([-+]?\d*\.?\d+)</alter>")
@@ -109,7 +109,7 @@ def main(argv=None) -> int:
         source_part, fb, params=params, instrument_obj=instrument_obj
     )
 
-    out_score.write("musicxml", fp=args.output)
+    write_musicxml(out_score, args.output)
 
     print(f"wrote {args.output}")
     if warnings:

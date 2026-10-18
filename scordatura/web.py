@@ -15,7 +15,7 @@ from music21 import converter, instrument as m21_instr
 from .cli import _pick_part, _promote_string_indications, _snap_microtonal_alters
 from .config import _INSTRUMENT_MAP
 from .fingerboard import Fingerboard
-from .render import build_score
+from .render import build_score, write_musicxml
 from .solver import SolverParams
 
 
@@ -93,7 +93,7 @@ def process():
 
     tmp = tempfile.NamedTemporaryFile(suffix=".musicxml", delete=False)
     tmp.close()
-    out_score.write("musicxml", fp=tmp.name)
+    write_musicxml(out_score, tmp.name)
 
     base = os.path.splitext(os.path.basename(f.filename))[0] or "score"
     download_name = f"{base}_scordatura.musicxml"

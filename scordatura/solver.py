@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import product
 from typing import Callable, List, Optional, Tuple, Union
 
@@ -259,6 +259,14 @@ def _emission_cost(
     solve(), says whether a genuinely different set of strings is reachable
     at all for this event."""
     total = 0.0
+    if event.is_grace:
+        # A grace note has zero duration, which would zero out every
+        # duration-weighted term below, including the unassigned penalty —
+        # leaving "unassigned" as cheap as any real string. Give it a small
+        # floor weight so it is still always assigned.
+        event = replace(event, duration_per_note=[
+            max(d, _GRACE_WEIGHT) for d in event.duration_per_note
+        ])
     if event.kind == "harmonic":
         fundamental = min(event.pitches)
         fund_idx = event.pitches.index(fundamental)
@@ -374,6 +382,31 @@ def _next_sustains(
     return prev_sustains | frozenset(additions)
 
 
+
+_GRACE_WEIGHT = 0.05  # quarterLengths; stand-in duration for a grace note's cost weight
+
+
+def _align_graces_with_principals(
+    events: List[Event], assignments: List[Assignment], fb: Fingerboard
+) -> None:
+    """A grace note is played on the string of the note it leads into: move
+    each single-pitch grace note onto the next non-grace event's string
+    (when that event is a single stopped note and the grace's pitch is
+    reachable on it), so it is re-pitched by that string's scordatura
+    offset. Graces that can't follow keep the solver's own choice."""
+    for i, ev in enumerate(events):
+        if not ev.is_grace or ev.kind != "single":
+            continue
+        j = i + 1
+        while j < len(events) and events[j].is_grace:
+            j += 1
+        if j >= len(events) or events[j].kind != "single":
+            continue
+        target = assignments[j][0] if assignments[j] else None
+        if isinstance(target, int) and target in fb.valid_strings_for(ev.pitches[0]):
+            assignments[i] = (target,)
+
+
 def solve(
     events: List[Event],
     fingerboard: Fingerboard,
@@ -478,6 +511,7 @@ def solve(
         path_states.append(prev_state)
     path_states.reverse()
     assignments = [state[0] for state in path_states]
+    _align_graces_with_principals(events, assignments, fingerboard)
 
     # Surface warnings for unassigned notes.
     for i, (ev, asg) in enumerate(zip(events, assignments)):
