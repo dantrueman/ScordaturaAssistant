@@ -2,7 +2,7 @@ import copy
 from contextlib import contextmanager
 from typing import List, Optional, Tuple
 
-from music21 import articulations, chord, instrument, key, note, pitch, spanner, stream
+from music21 import articulations, chord, instrument, key, layout, note, pitch, spanner, stream
 from music21.stream import makeNotation as _m21_make_notation
 
 from .events import Event, parse_events
@@ -50,6 +50,23 @@ def _active_key_signature(part: stream.Part) -> Optional[key.KeySignature]:
     return None
 
 
+def _show_whole_measure_rests(m: stream.Measure) -> None:
+    """A bar that is nothing but a <forward> (Dorico's encoding of a bar rest
+    inside a multi-bar rest) parses as an invisible rest; written back it is a
+    hidden whole-bar rest and the bar imports completely empty. Make rests
+    that fill the entire bar visible again. Invisible rests that only fill a
+    gap next to real notes (a purposeful <forward>) stay hidden."""
+    items = list(m.notesAndRests)
+    if not items or any(not isinstance(el, note.Rest) for el in items):
+        return
+    if not all(el.style.hideObjectOnPrint for el in items):
+        return
+    for el in items:
+        el.style.hideObjectOnPrint = False
+        if len(items) == 1:
+            el.fullMeasure = True
+
+
 def _sanitize_part_for_export(part: stream.Part) -> None:
     """Strip source-notation artifacts that trigger known music21 MusicXML
     write/round-trip bugs, so the exported score matches what was parsed:
@@ -66,7 +83,15 @@ def _sanitize_part_for_export(part: stream.Part) -> None:
     for ottava in list(part.recurse().getElementsByClass(spanner.Ottava)):
         part.remove(ottava, recurse=True)
 
+    # Source page/system layout (forced system and page breaks, margins) was
+    # tuned for the one-staff source part. Copied onto every staff of the
+    # multi-staff output it imports as dozens of spurious frame/system breaks,
+    # so let the engraver do its own layout.
+    for lay in list(part.recurse().getElementsByClass((layout.PageLayout, layout.SystemLayout))):
+        part.remove(lay, recurse=True)
+
     for m in part.getElementsByClass(stream.Measure):
+        _show_whole_measure_rests(m)
         if m.voices:
             continue  # genuine multi-voice measure: overlaps are legitimate
         notes = list(m.notes)
