@@ -39,6 +39,11 @@ rm -rf ~/.scordatura
 
 A browser tab opens at `http://127.0.0.1:5005`. Close the Command Prompt window to stop the server.
 
+**To update to a newer version**, download the latest `ScordaturaAssistant.zip` from the [releases page](https://github.com/dantrueman/ScordaturaAssistant/releases/latest) and replace your old `ScordaturaAssistant` folder with the new one (the Windows launcher runs the code in its own folder, so this is what installs the new version). If the app fails to start after updating, delete the old environment and relaunch `launch.bat`. In Command Prompt, from inside the `ScordaturaAssistant` folder:
+```bat
+rmdir /s /q .venv
+```
+
 ## Run (CLI / advanced)
 
 ```bash
