@@ -76,7 +76,7 @@ def _sanitize_part_for_export(part: stream.Part) -> None:
       (observed shifting a tied note's pitch down an octave).
     - Rests that music21 synthesizes to fill a <backup>/<forward> pair used
       purely to reposition a direction (e.g. the octave-shift line) — they
-      overlap in time with a real note in the same (voice-less) measure and
+      overlap in time with a real note in the same voice (or voice-less measure) and
       aren't a genuine second voice; left in place they desync all
       subsequent offsets on write.
     """
@@ -92,25 +92,34 @@ def _sanitize_part_for_export(part: stream.Part) -> None:
 
     for m in part.getElementsByClass(stream.Measure):
         _show_whole_measure_rests(m)
-        if m.voices:
-            continue  # genuine multi-voice measure: overlaps are legitimate
-        notes = list(m.notes)
-        kept_rests: List[note.Rest] = []
-        for r in list(m.getElementsByClass(note.Rest)):
-            r_start = r.offset
-            r_end = r_start + r.duration.quarterLength
-            # A rest also counts as redundant when it overlaps a rest we've
-            # already kept (e.g. a real rest plus the rest music21 synthesizes
-            # for a <forward> over the same span): written back to back they
-            # would lengthen the bar.
-            for n in notes + kept_rests:
-                n_start = n.offset
-                n_end = n_start + n.duration.quarterLength
-                if r_start < n_end and n_start < r_end:
-                    m.remove(r)
-                    break
-            else:
-                kept_rests.append(r)
+        # Overlaps are only illegitimate WITHIN one line of music: separate
+        # voices legitimately overlap in time, but within a single voice (or a
+        # voice-less measure) a rest overlapping a note is the synthetic rest
+        # music21 creates for a <forward> that merely repositions a direction.
+        # Written back it advances time by its own length, adding a spurious
+        # rest and pushing every later note in that voice late.
+        for container in (list(m.voices) or [m]):
+            _drop_overlapping_rests(container)
+
+
+def _drop_overlapping_rests(container: stream.Stream) -> None:
+    notes = list(container.notes)
+    kept_rests: List[note.Rest] = []
+    for r in list(container.getElementsByClass(note.Rest)):
+        r_start = r.offset
+        r_end = r_start + r.duration.quarterLength
+        # A rest also counts as redundant when it overlaps a rest we've
+        # already kept (e.g. a real rest plus the rest music21 synthesizes
+        # for a <forward> over the same span): written back to back they
+        # would lengthen the bar.
+        for n in notes + kept_rests:
+            n_start = n.offset
+            n_end = n_start + n.duration.quarterLength
+            if r_start < n_end and n_start < r_end:
+                container.remove(r)
+                break
+        else:
+            kept_rests.append(r)
 
 
 def _set_pitch_on_note(n: "note.Note", new_pitch: pitch.Pitch) -> None:
