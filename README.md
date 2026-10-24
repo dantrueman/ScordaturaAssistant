@@ -25,7 +25,7 @@ Requires Python 3.9+. If Python is not already on your machine:
 2. Double-click `launch.command`. The first time macOS may warn you it's from an unidentified developer — right-click it and choose **Open**, then confirm. On first launch it will create a virtual environment and install dependencies automatically (requires an internet connection); subsequent launches start immediately.
    - If you see a permissions error on first launch, go to **System Settings → Privacy & Security → Files and Folders** and grant Terminal access to the folder where the app is stored. Alternatively, grant Terminal **Full Disk Access** under Privacy & Security.
 
-A browser tab opens at `http://127.0.0.1:5005`. Drag-drop a MusicXML file, pick an instrument preset, edit base pitches / offsets / max-fret if needed, hit Translate, and the 6-staff output downloads. Close the Terminal window to stop the server.
+A browser tab opens at `http://127.0.0.1:5005`. Drag-drop a MusicXML file, pick an instrument preset, edit base pitches / offsets / max-fret if needed, tick **Translate 24EDO** if your score uses quarter-tone accidentals (see [Microtonal accidentals](#microtonal-accidentals-and-heji)), hit Translate, and the 6-staff output downloads. Close the Terminal window to stop the server.
 
 **To update to a newer version**, delete `~/.scordatura` in Terminal and relaunch:
 ```bash
@@ -61,6 +61,8 @@ python3 -m venv .venv
     --output path/to/out.musicxml \
     --config path/to/tuning.json
 ```
+
+Add `--translate-24edo` to keep quarter-tone accidentals (see [Microtonal accidentals](#microtonal-accidentals-and-heji)); without it every microtonal accidental is rounded to a semitone.
 
 Open the output in MuseScore, Dorico, or Finale.
 
@@ -173,9 +175,22 @@ its own independent string marking without affecting the other voice's persisted
 See `examples/StringVoicingChallenge.musicxml` for a worked example, including the intended "as
 fingered" result.
 
+## Microtonal accidentals and HEJI
+
+The **Translate 24EDO** checkbox in the web app (CLI: `--translate-24edo`) decides what happens to microtonal accidentals. It is **off by default**.
+
+| Setting | What the output contains |
+|---|---|
+| **Off** (default) | Every microtonal accidental is rounded to the nearest 12-EDO semitone. Exact quarter-tones round *up* (quarter-sharp becomes sharp, quarter-flat becomes natural, three-quarters-sharp becomes double-sharp, three-quarters-flat becomes flat), and quarter-tone accidental names are rewritten to match, so no quarter-tone accidental appears anywhere in the output. |
+| **On** | Standard quarter-tone accidentals (half-sharp, half-flat, three-quarters) are kept and respelled when a string's scordatura offset transposes them. Any other fractional alter is snapped first: to a quarter-tone if it lies within 0.1 of one, otherwise to the nearest semitone. |
+
+**Use it off for HEJI and other just-intonation scores.** Their commas are written by Dorico as small fractional alters (for example `0.903` or `-0.266`). Left on, these would be read as quarter-tones, making the music look like 24-EDO. Turn it **on** only for music that genuinely uses quarter-tone accidentals.
+
+**HEJI is never preserved, in either setting.** Dorico exports HEJI accidentals as bare fractional `<alter>` values with no accidental glyph, draws no accidental for such values when it imports MusicXML, and ignores SMuFL glyph names, so there is no way to carry the glyphs through MusicXML. Repaint HEJI in your engraver after importing the translated score. The tool prints how many microtonal values it snapped.
+
 ## Limitations
 
-- **Microtonal accidentals.** The **Translate 24EDO** checkbox (CLI: `--translate-24edo`) is off by default. Off: every microtonal alter is rounded to the nearest 12-EDO semitone (exact quarter-tones round up) and quarter-tone accidental names are rewritten to match, so no quarter-tone accidental appears anywhere in the output — the right choice for HEJI and other just-intonation scores, whose commas would otherwise read as strange 24-EDO music. On: standard quarter-tone accidentals (half-sharp, half-flat, three-quarters) are preserved and respelled when a string's scordatura offset transposes them; other fractional alters are snapped first (to a quarter-tone if within 0.1 of one, else the nearest semitone). HEJI commas are never preserved either way: Dorico exports them as bare fractional alters, draws no accidental for them on import and ignores SMuFL glyph names, so repaint HEJI in your engraver afterward.
+- **Microtonal accidentals.** HEJI commas and other just-intonation accidentals are not preserved; they are rounded to semitones (or, with Translate 24EDO on, to quarter-tones). See [Microtonal accidentals and HEJI](#microtonal-accidentals-and-heji).
 - **Voice round-trips** in MusicXML are fragile: keep each measure either fully voiced or fully non-voiced. Mixing the two in one measure can confuse engravers downstream. A measure with only one voice is treated as voice "1" for the purposes of string-indication persistence and tie continuity, even if the source used a different explicit voice number for it.
 
 ## Tuning the solver
