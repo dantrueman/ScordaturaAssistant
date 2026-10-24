@@ -234,11 +234,81 @@ def _run_octave_harmonic_notehead_check() -> None:
     print("octave-harmonic notehead convention verified (normal notehead + circle)")
 
 
+def _run_quarter_tone_check() -> None:
+    """Quarter-tone accidentals must survive transposition: a half-sharp or
+    half-flat is a half-step residual, not something to round to a semitone."""
+    from music21 import pitch
+
+    fb = Fingerboard(n_strings=2, base_pitches=[55, 62], offsets=[0, -2])
+    part = stream.Part()
+    m = stream.Measure(number=1)
+    m.append(meter.TimeSignature("4/4"))
+    for name, alter in (("D4", 0.5), ("E4", -0.5), ("F#4", 0.5)):
+        n = note.Note(name)
+        n.pitch.accidental = pitch.Accidental(
+            alter + (n.pitch.accidental.alter if n.pitch.accidental else 0)
+        )
+        n.quarterLength = 1
+        m.append(n)
+    part.append(m)
+    sounding = [n.pitch.ps for n in part.recurse().notes]
+    assert sounding == [62.5, 63.5, 66.5], sounding
+
+    out = _build_fingered_part(
+        part, fb, favor_upper, SolverParams(), "q", "q", instrument.Violin(),
+        translate_24edo=True,
+    )[0]
+    notes_out = list(out.recurse().notes)
+    for n_out, snd in zip(notes_out, sounding):
+        frac = n_out.pitch.ps % 1
+        assert abs(frac - 0.5) < 1e-6, f"quarter-tone lost: {n_out.pitch} (ps {n_out.pitch.ps})"
+        # Read pitch = sounding - offset, an integer number of semitones.
+        assert (snd - n_out.pitch.ps) in (0, -2), (snd, n_out.pitch.ps)
+    print("quarter-tone accidentals preserved through transposition")
+
+    # Toggle off (the default): quarter-tones collapse to whole semitones.
+    out_off = _build_fingered_part(
+        part, fb, favor_upper, SolverParams(), "q", "q", instrument.Violin()
+    )[0]
+    for n_out in out_off.recurse().notes:
+        assert abs(n_out.pitch.ps - round(n_out.pitch.ps)) < 1e-6, (
+            f"quarter-tone survived with translate_24edo off: {n_out.pitch}"
+        )
+    print("quarter-tones rounded to semitones with translate_24edo off")
+
+
+def _run_twelve_edo_snap_check() -> None:
+    """With Translate 24EDO off, every microtonal alter rounds to the nearest
+    semitone and no quarter-tone <accidental> name survives."""
+    from scordatura.cli import _snap_microtonal_alters
+
+    def note(alter, acc=""):
+        return (f"<note><pitch><step>C</step><alter>{alter}</alter><octave>4</octave></pitch>"
+                f"{acc}</note>")
+
+    cases = [
+        (0.5, "quarter-sharp", "1", "sharp"), (-0.5, "quarter-flat", "0", "natural"),
+        (1.5, "three-quarters-sharp", "2", "double-sharp"),
+        (-1.5, "three-quarters-flat", "-1", "flat"),
+        (0.903, None, "1", None), (-0.266, None, "0", None), (-1.114, None, "-1", None),
+    ]
+    for alter, acc, want_alter, want_acc in cases:
+        src = note(alter, f"<accidental>{acc}</accidental>" if acc else "")
+        out, _ = _snap_microtonal_alters(src)
+        assert f"<alter>{want_alter}</alter>" in out, (alter, out)
+        if want_acc:
+            assert f"<accidental>{want_acc}</accidental>" in out, (alter, out)
+        assert "quarter" not in out, (alter, out)
+    print("microtonal alters rounded to 12-EDO with translate_24edo off")
+
+
 def run() -> int:
     _ensure_fixture()
     _run_artificial_harmonic_check()
     _run_natural_harmonic_check()
     _run_octave_harmonic_notehead_check()
+    _run_quarter_tone_check()
+    _run_twelve_edo_snap_check()
 
     print("smoke test passed")
     return 0

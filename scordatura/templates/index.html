@@ -84,6 +84,9 @@
   <input type="text" name="max_fret" id="max_fret" placeholder="24, 24, 24, 24">
   <small>Semitones above the open string; defaults to 24 (two octaves) all around.</small>
 
+  <label class="check"><input type="checkbox" name="translate_24edo" id="translate_24edo"> Translate 24EDO</label>
+  <small>Keep quarter-tone accidentals as quarter-tones. Leave off for HEJI or other just-intonation scores: their commas would otherwise read as strange 24-EDO music, so every microtonal accidental is rounded to a semitone instead.</small>
+
   <button type="submit">Translate</button>
 </form>
 

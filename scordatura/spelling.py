@@ -1,3 +1,4 @@
+import math
 from typing import Optional
 
 from music21 import key, pitch
@@ -72,22 +73,68 @@ def _midi_to_name_octave(midi: int, side: str) -> str:
     return f"{name}{octave}"
 
 
-def respell(
-    read_midi: int,
-    sounding_midi: int,
+def _respell_quarter_tone(
+    read_ps: float,
     source_pitch: Optional[pitch.Pitch],
     key_sig: Optional[key.KeySignature],
-    contour: int = 0,
+    contour: float,
+) -> pitch.Pitch:
+    """Spell a pitch lying exactly halfway between two semitones. The
+    quarter-tone is the residual; the semitone neighbor it hangs off is
+    spelled like any other note. Sharp side: lower neighbor + 0.5 (C~, C#~).
+    Flat side: upper neighbor - 0.5 (D`, E-`)."""
+    lower = int(math.floor(read_ps))
+    side = _pick_side(source_pitch, key_sig, int(contour))
+    if side == "sharp":
+        p = pitch.Pitch(_midi_to_name_octave(lower, "sharp"))
+        delta = 0.5
+    else:
+        p = pitch.Pitch(_midi_to_name_octave(lower + 1, "flat"))
+        delta = -0.5
+    base_alter = p.accidental.alter if p.accidental is not None else 0.0
+    p.accidental = pitch.Accidental(base_alter + delta)
+    p.accidental.displayStatus = True
+    return p
+
+
+def respell(
+    read_midi: float,
+    sounding_midi: float,
+    source_pitch: Optional[pitch.Pitch],
+    key_sig: Optional[key.KeySignature],
+    contour: float = 0,
+    translate_24edo: bool = False,
 ) -> pitch.Pitch:
     """Return a music21 Pitch for `read_midi`, spelled to honor the source's
     key signature and accidental direction. `contour` is a signed semitone
-    delta from the previous note in the same line (used as a tie-break)."""
+    delta from the previous note in the same line (used as a tie-break).
+    With translate_24edo False, pitches are whole semitones and the source
+    spelling is reused by whole-semitone (MIDI) match, as before quarter-tone
+    support existed."""
+    # Quarter-tones (fractional .5) keep their microtonal accidental; the
+    # semitone they hang off is spelled by the normal rules.
+    if translate_24edo and abs(read_midi - round(read_midi)) > 1e-6:
+        if (
+            read_midi == sounding_midi
+            and source_pitch is not None
+            and abs(source_pitch.ps - read_midi) < 1e-6
+        ):
+            p = pitch.Pitch(source_pitch.nameWithOctave)
+            p.accidental.displayStatus = True
+            return p
+        return _respell_quarter_tone(read_midi, source_pitch, key_sig, contour)
+    read_midi = int(round(read_midi))
+
     # If no transposition is needed (offset == 0 on this string), preserve the
     # source spelling exactly.
     if (
         read_midi == sounding_midi
         and source_pitch is not None
-        and source_pitch.midi == read_midi
+        and (
+            abs(source_pitch.ps - read_midi) < 1e-6
+            if translate_24edo
+            else source_pitch.midi == read_midi
+        )
     ):
         p = pitch.Pitch(source_pitch.nameWithOctave)
         if p.accidental is not None:

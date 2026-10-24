@@ -69,7 +69,7 @@ class PitchRef:
 @dataclass
 class Event:
     onset: float                      # absolute quarterLength within the Part
-    pitches: List[int]                # sounding MIDI integers, ordered
+    pitches: List[float]              # sounding pitch as fractional MIDI (music21 .ps; quarter-tones are .5), ordered
     duration_per_note: List[float]    # quarterLength, parallel to pitches
     refs: List[PitchRef]              # parallel to pitches
     kind: str                         # "single" | "chord" | "harmonic" | "natural_harmonic"
@@ -165,7 +165,7 @@ def _compute_voice_string_hints(raw) -> dict:
     return hints
 
 
-def _resolve_tied_chains(part: stream.Part, items):
+def _resolve_tied_chains(part: stream.Part, items, pitch_value=lambda p: p.ps):
     """For each Note (or single-note Chord) that begins a tied chain, walk the
     chain forward and record which following notes share the same string
     assignment. Returns a dict mapping id(start_note) -> list of follower
@@ -183,9 +183,9 @@ def _resolve_tied_chains(part: stream.Part, items):
     flat_index = []
     for gn, off, vid in items:
         if isinstance(gn, note.Note):
-            flat_index.append((gn, gn.pitch.midi, vid))
+            flat_index.append((gn, pitch_value(gn.pitch), vid))
         elif isinstance(gn, chord.Chord) and len(gn.pitches) == 1:
-            flat_index.append((gn, gn.pitches[0].midi, vid))
+            flat_index.append((gn, pitch_value(gn.pitches[0]), vid))
 
     for i, (gn, midi, vid) in enumerate(flat_index):
         target_note = gn if isinstance(gn, note.Note) else gn.notes[0]
@@ -216,10 +216,14 @@ def _resolve_tied_chains(part: stream.Part, items):
     return chain_followers, skip_followers
 
 
-def parse_events(part: stream.Part) -> List[Event]:
-    """Walk a music21 Part and produce solver events."""
+def parse_events(part: stream.Part, translate_24edo: bool = False) -> List[Event]:
+    """Walk a music21 Part and produce solver events. With translate_24edo
+    False (the default) pitches are rounded to whole MIDI semitones, so a
+    quarter-tone accidental collapses to a semitone; with it True they keep
+    their fractional (quarter-tone) value."""
+    pitch_value = (lambda p: p.ps) if translate_24edo else (lambda p: p.midi)
     raw = _iter_notes(part)
-    chain_followers, skip_followers = _resolve_tied_chains(part, raw)
+    chain_followers, skip_followers = _resolve_tied_chains(part, raw, pitch_value)
     voice_string_hints = _compute_voice_string_hints(raw)
 
     # Group same-onset notes (across voices) into a single Event.
@@ -250,7 +254,7 @@ def parse_events(part: stream.Part) -> List[Event]:
 
     for group in grouped:
         onset = group[0][1]
-        pitches: List[int] = []
+        pitches: List[float] = []
         durations: List[float] = []
         refs: List[PitchRef] = []
         source_pitches: List["object"] = []
@@ -264,7 +268,7 @@ def parse_events(part: stream.Part) -> List[Event]:
 
         for gn, _ in group:
             if isinstance(gn, note.Note):
-                pitches.append(gn.pitch.midi)
+                pitches.append(pitch_value(gn.pitch))
                 # Tied chain: aggregate duration across followers.
                 base_dur = float(gn.duration.quarterLength)
                 followers = chain_followers.get(id(gn), [])
@@ -291,7 +295,7 @@ def parse_events(part: stream.Part) -> List[Event]:
                 else:
                     total_dur = base_dur
                 for i, p in enumerate(gn.pitches):
-                    pitches.append(p.midi)
+                    pitches.append(pitch_value(p))
                     durations.append(total_dur)
                     ref = _build_pitch_ref(gn, i)
                     if len(gn.pitches) == 1:

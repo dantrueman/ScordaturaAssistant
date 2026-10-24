@@ -175,7 +175,7 @@ fingered" result.
 
 ## Limitations
 
-- **Microtonal accidentals** (HEJI commas, etc.) are snapped to the nearest quarter-tone before parsing — music21 only models alters in 0.5 steps. The tool prints how many values were snapped. Repaint HEJI in your engraver afterward.
+- **Microtonal accidentals.** The **Translate 24EDO** checkbox (CLI: `--translate-24edo`) is off by default. Off: every microtonal alter is rounded to the nearest 12-EDO semitone (exact quarter-tones round up) and quarter-tone accidental names are rewritten to match, so no quarter-tone accidental appears anywhere in the output — the right choice for HEJI and other just-intonation scores, whose commas would otherwise read as strange 24-EDO music. On: standard quarter-tone accidentals (half-sharp, half-flat, three-quarters) are preserved and respelled when a string's scordatura offset transposes them; other fractional alters are snapped first (to a quarter-tone if within 0.1 of one, else the nearest semitone). HEJI commas are never preserved either way: Dorico exports them as bare fractional alters, draws no accidental for them on import and ignores SMuFL glyph names, so repaint HEJI in your engraver afterward.
 - **Voice round-trips** in MusicXML are fragile: keep each measure either fully voiced or fully non-voiced. Mixing the two in one measure can confuse engravers downstream. A measure with only one voice is treated as voice "1" for the purposes of string-indication persistence and tie continuity, even if the source used a different explicit voice number for it.
 
 ## Tuning the solver

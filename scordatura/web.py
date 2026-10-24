@@ -74,7 +74,8 @@ def process():
     instr_cls = _INSTRUMENT_MAP.get(instr_name, m21_instr.Violin)
     instr_obj = instr_cls()
 
-    xml_text, _snapped = _snap_microtonal_alters(xml_text)
+    translate_24edo = request.form.get("translate_24edo") is not None
+    xml_text, _snapped = _snap_microtonal_alters(xml_text, translate_24edo)
     xml_text, _promoted = _promote_string_indications(xml_text)
     try:
         source_score = converter.parse(xml_text, format="musicxml")
@@ -83,7 +84,8 @@ def process():
 
     source_part = _pick_part(source_score)
     out_score, warnings = build_score(
-        source_part, fb, params=params, instrument_obj=instr_obj
+        source_part, fb, params=params, instrument_obj=instr_obj,
+        translate_24edo=translate_24edo,
     )
 
     if warnings:

@@ -1,4 +1,5 @@
 import copy
+import functools
 from contextlib import contextmanager
 from typing import List, Optional, Tuple
 
@@ -146,6 +147,7 @@ def _apply_event(
     fb: Fingerboard,
     key_sig: Optional[key.KeySignature],
     prev_sounding_midi: Optional[int],
+    translate_24edo: bool = False,
 ) -> Optional[int]:
     """Mutate the event's source_refs in place. Returns the last sounding MIDI
     handled (so callers can track contour for spelling)."""
@@ -160,6 +162,7 @@ def _apply_event(
             source_pitch=source_p,
             key_sig=key_sig,
             contour=contour,
+            translate_24edo=translate_24edo,
         )
 
     if event.kind == "harmonic":
@@ -355,6 +358,7 @@ def _build_fingered_part(
     instrument_obj: instrument.Instrument,
     avoid: Optional[List[Assignment]] = None,
     candidate_override: Optional[List[List[Assignment]]] = None,
+    translate_24edo: bool = False,
 ) -> Tuple[stream.Part, List[str], List[Assignment]]:
     """avoid, when given, is another strategy's already-solved per-event
     Assignment list for this same source_part (see solve()'s avoid), used
@@ -375,7 +379,7 @@ def _build_fingered_part(
         new_part.remove(ei)
     new_part.insert(0.0, copy.deepcopy(instrument_obj))
 
-    events = parse_events(new_part)
+    events = parse_events(new_part, translate_24edo=translate_24edo)
     assignments, warnings = solve(
         events, fb, strategy, params, avoid=avoid, candidate_override=candidate_override
     )
@@ -387,7 +391,7 @@ def _build_fingered_part(
     ks = _active_key_signature(new_part)
     prev_sounding = None
     for ev, asg in zip(events, assignments):
-        prev_sounding = _apply_event(ev, asg, fb, ks, prev_sounding)
+        prev_sounding = _apply_event(ev, asg, fb, ks, prev_sounding, translate_24edo)
 
     _sanitize_part_for_export(new_part)
     return new_part, warnings, assignments
@@ -432,12 +436,14 @@ def build_score(
     fingerboard: Fingerboard,
     params: Optional[SolverParams] = None,
     instrument_obj: Optional[instrument.Instrument] = None,
+    translate_24edo: bool = False,
 ) -> Tuple[stream.Score, List[str]]:
     params = params or SolverParams()
     instrument_obj = instrument_obj or instrument.Violoncello()
 
+    build = functools.partial(_build_fingered_part, translate_24edo=translate_24edo)
     p1 = _passthrough_part(source_part, "P1", "Sounding (source)", instrument_obj)
-    p2, w2, asg2 = _build_fingered_part(
+    p2, w2, asg2 = build(
         source_part, fingerboard, favor_upper, params, "P2", "Favor upper", instrument_obj
     )
     # Feed favor_upper's per-event string choices in as favor_lower's "avoid"
@@ -446,7 +452,7 @@ def build_score(
     # event, rather than both strategies silently converging on the same
     # overall fingering (judged per event, not per pitch, so a chord can't
     # "dodge" the check by merely swapping which pitch uses which string).
-    p3, w3, asg3 = _build_fingered_part(
+    p3, w3, asg3 = build(
         source_part, fingerboard, favor_lower, params, "P3", "Favor lower", instrument_obj,
         avoid=asg2,
     )
@@ -461,19 +467,19 @@ def build_score(
     hybrid_override = None
     if asg2 and asg3 and len(asg2) == len(asg3):
         hybrid_override = _hybrid_candidate_override(asg2, asg3)
-    p4, w4, _asg4 = _build_fingered_part(
+    p4, w4, _asg4 = build(
         source_part, fingerboard, no_preference, params, "P4", "Hybrid (upper+lower)",
         instrument_obj, candidate_override=hybrid_override,
     )
     # P5 "No preference": a fresh, independent solve with zero string-index
     # bias — open-string bonus, hints, and transition smoothness decide
     # freely, often landing naturally between the two extremes.
-    p5, w5, _asg5 = _build_fingered_part(
+    p5, w5, _asg5 = build(
         source_part, fingerboard, no_preference, params, "P5", "No preference", instrument_obj
     )
     # P6 "Favor middle": a fresh, independent solve that explicitly prefers
     # strings near the center of the fingerboard.
-    p6, w6, _asg6 = _build_fingered_part(
+    p6, w6, _asg6 = build(
         source_part, fingerboard, favor_middle, params, "P6", "Favor middle", instrument_obj
     )
 
