@@ -186,7 +186,7 @@ The **Translate 24EDO** checkbox in the web app (CLI: `--translate-24edo`) decid
 
 **Use it off for HEJI and other just-intonation scores.** Their commas are written by Dorico as small fractional alters (for example `0.903` or `-0.266`). Left on, these would be read as quarter-tones, making the music look like 24-EDO. Turn it **on** only for music that genuinely uses quarter-tone accidentals.
 
-**HEJI is never preserved, in either setting.** Dorico exports HEJI accidentals as bare fractional `<alter>` values with no accidental glyph, draws no accidental for such values when it imports MusicXML, and ignores SMuFL glyph names, so there is no way to carry the glyphs through MusicXML. Repaint HEJI in your engraver after importing the translated score. The tool prints how many microtonal values it snapped.
+**HEJI is never preserved, in either setting.** Dorico exports HEJI accidentals as bare fractional `<alter>` values, with no accidental glyph or glyph name. When it imports such a value it creates a generic "cents" accidental (for example "21 cents flat") drawn with a 24-EDO-style glyph, so the pitch is right but the HEJI accidental is not. It does read an accidental's SMuFL glyph name from the file, but draws the result blank. As tested in Dorico 6, there is no way to carry HEJI glyphs through MusicXML. Repaint HEJI in your engraver after importing the translated score. The tool prints how many microtonal values it snapped.
 
 ## Limitations
 
